@@ -22,7 +22,7 @@ for label in os.listdir(train_path):
   for filename in os.listdir(dir):
     label_list.append(label)
     image_path = dir + "/" + filename
-    image = np.array(Image.open(image_path).resize((28,28)))
+    image = np.array(Image.open(image_path).convert("L").resize((28,28)))
     image_list.append(image/255.)
 
 image_list = np.array(image_list)
@@ -52,8 +52,6 @@ model.add(Dense(64, activation="relu"))
 model.add(Flatten())
 model.add(Dense(10, activation="softmax"))
 model.summary()
-
-checkpointer = ModelCheckpoint(filepath = 'sample_mnist.hdf5', verbose=1, save_best_only=True, monitor='val_acc', mode='max')
 
 model.compile(
     optimizer='adadelta',
