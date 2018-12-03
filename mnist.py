@@ -1,10 +1,14 @@
 import keras
+from keras import backend
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Dropout, Flatten
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
 from keras.utils import np_utils
 import tensorflow as tf
+from tensorflow.python.saved_model import builder as save_model_builder
+from tensorflow.python.saved_model.signature_def_utils import predict_signature_def
+from tensorflow.python.saved_model import tag_constants
 from sklearn.model_selection import train_test_split
 
 import numpy as np
@@ -38,6 +42,9 @@ epochs = 5
 kernel_size = (4,4)
 input_shape = train_data[0].shape
 
+sess = tf.Session()
+backend.set_session(sess)
+
 model = Sequential()
 
 model.add(Conv2D(filters=32, kernel_size=kernel_size, input_shape=input_shape, activation="relu"))
@@ -63,9 +70,11 @@ model.fit(train_data, train_label, batch_size=batch_size, epochs=epochs)
 
 scores = model.evaluate(test_data, test_label, verbose=1)
 
-json_string = model.to_json()
-open('mnist.json', 'w').write(json_string)
-model.save_weights('mnist.h5')
+# Save model
+builder = save_model_builder.SavedModelBuilder('mymnist')
+builder.add_meta_graph_and_variables(sess, ['mnisttag'])
+builder.save()
+sess.close()
 
 print('Test loss:', scores[0])
 print('Test accuracy:', scores[1])
