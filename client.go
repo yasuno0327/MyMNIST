@@ -61,7 +61,6 @@ func Recognition(tensor *tensorflow.Tensor) (string, error) {
 	}
 	defer model.Session.Close()
 
-	// inputするimageのshapeをtensorに変換する [batch size][width][height][channels]
 	result, err := model.Session.Run(
 		map[tensorflow.Output]*tensorflow.Tensor{
 			model.Graph.Operation("conv2d_1_input").Output(0): tensor,
@@ -84,7 +83,6 @@ func Recognition(tensor *tensorflow.Tensor) (string, error) {
 			max = i
 		}
 	}
-	log.Println(probabilities)
 	return labels[max], nil
 }
 
@@ -113,23 +111,23 @@ func ConvertImageToTensor(imageBuffer *bytes.Buffer, format string) (*tensorflow
 	return normalized[0], nil
 }
 
+// inputするimageの情報を返す [batch size][width][height][channels]
 func makeTransFormImageGraph(format string) (graph *tensorflow.Graph, input, output tensorflow.Output, err error) {
 	const (
 		Height, Width = 28, 28
-		Batch         = float32(128)
-		Normalize     = float32(255)
 	)
 	s := op.NewScope()
 	input = op.Placeholder(s, tensorflow.String)
 	var decode tensorflow.Output
 	decode = op.DecodeJpeg(s, input, op.DecodeJpegChannels(1)) //0,1だけなので1
 
-	// imageを28x28にリサイズ
+	// decodeした画像のtensorにbatch sizeを加える
 	decodeWithBatch := op.ExpandDims(
 		s,
 		op.Cast(s, decode, tensorflow.Float),
 		op.Const(s.SubScope("make_batch"), int32(0)),
 	)
+	// imageを28x28にリサイズ
 	output = op.ResizeBilinear(
 		s,
 		decodeWithBatch,
