@@ -82,6 +82,7 @@ func mnistHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ConvertImageToTensor(imageBuffer *bytes.Buffer, format string) (*tensorflow.Tensor, error) {
+	format = "jpeg"
 	tensor, err := tensorflow.NewTensor(imageBuffer.String())
 	if err != nil {
 		return nil, err
@@ -108,26 +109,25 @@ func ConvertImageToTensor(imageBuffer *bytes.Buffer, format string) (*tensorflow
 func makeTransFormImageGraph(format string) (graph *tensorflow.Graph, input, output tensorflow.Output, err error) {
 	const (
 		Height, Width = 28, 28
-		Batch         = float32(1)
-		Scale         = float32(1)
+		Batch         = float32(128)
+		Normalize     = float32(255)
 	)
 	s := op.NewScope()
 	input = op.Placeholder(s, tensorflow.String)
 	var decode tensorflow.Output
 	decode = op.DecodeJpeg(s, input, op.DecodeJpegChannels(1)) //0,1だけなので1
 
-	output = op.Div(s,
-		op.Sub(s,
-			// Resize to 224x224 with bilinear interpolation
-			op.ResizeBilinear(s,
-				// Create a batch containing a single image
-				op.ExpandDims(s,
-					// Use decoded pixel values
-					op.Cast(s, decode, tensorflow.Float),
-					op.Const(s.SubScope("make_batch"), int32(1))),
-				op.Const(s.SubScope("size"), []int32{Height, Width})),
-			op.Const(s.SubScope("mean"), Batch)),
-		op.Const(s.SubScope("scale"), Scale))
+	// imageを28x28にリサイズ
+	decodeWithBatch := op.ExpandDims(
+		s,
+		op.Cast(s, decode, tensorflow.Float),
+		op.Const(s.SubScope("make_batch"), int32(0)),
+	)
+	output = op.ResizeBilinear(
+		s,
+		decodeWithBatch,
+		op.Const(s.SubScope("size"), []int32{Height, Width}),
+	)
 	graph, err = s.Finalize()
 	return graph, input, output, err
 }

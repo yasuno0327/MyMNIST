@@ -41,6 +41,7 @@ batch_size = 128
 epochs = 5
 kernel_size = (4,4)
 input_shape = train_data[0].shape
+print(input_shape)
 
 sess = tf.Session()
 backend.set_session(sess)
