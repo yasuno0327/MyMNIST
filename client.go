@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -12,13 +13,43 @@ import (
 )
 
 type Result struct {
-	Name        string
-	Probability float64
+	Name string
+}
+
+type Error struct {
+	Message string
 }
 
 func main() {
 	http.HandleFunc("/mnist", mnistHandler)
 	http.ListenAndServe(":3000", nil)
+}
+
+func mnistHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	imageFile, header, err := r.FormFile("image")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer imageFile.Close()
+
+	imageName := strings.Split(header.Filename, ".")
+	var imageBuffer bytes.Buffer
+	io.Copy(&imageBuffer, imageFile)
+	tensor, err := ConvertImageToTensor(&imageBuffer, imageName[:1][0])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	class, err := Recognition(tensor)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(Error{Message: err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Result{Name: class})
 }
 
 func Recognition(tensor *tensorflow.Tensor) (string, error) {
@@ -53,32 +84,8 @@ func Recognition(tensor *tensorflow.Tensor) (string, error) {
 			max = i
 		}
 	}
-	log.Println(probability, max)
 	log.Println(probabilities)
 	return labels[max], nil
-}
-
-func mnistHandler(w http.ResponseWriter, r *http.Request) {
-	imageFile, header, err := r.FormFile("image")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer imageFile.Close()
-
-	imageName := strings.Split(header.Filename, ".")
-	var imageBuffer bytes.Buffer
-	io.Copy(&imageBuffer, imageFile)
-	tensor, err := ConvertImageToTensor(&imageBuffer, imageName[:1][0])
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	probability, err := Recognition(tensor)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println(probability)
 }
 
 func ConvertImageToTensor(imageBuffer *bytes.Buffer, format string) (*tensorflow.Tensor, error) {
