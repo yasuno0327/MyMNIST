@@ -39,13 +39,12 @@ func mnistHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(&imageBuffer, imageFile)
 	tensor, err := ConvertImageToTensor(&imageBuffer, imageName[:1][0])
 	if err != nil {
-		log.Println(err)
+		ErrorRes(w, err)
 		return
 	}
 	class, err := Recognition(tensor)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(Error{Message: err.Error()})
+		ErrorRes(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -135,4 +134,9 @@ func makeTransFormImageGraph(format string) (graph *tensorflow.Graph, input, out
 	)
 	graph, err = s.Finalize()
 	return graph, input, output, err
+}
+
+func ErrorRes(w http.ResponseWriter, err error) {
+	w.WriteHeader(http.StatusInternalServerError)
+	json.NewEncoder(w).Encode(Error{Message: err.Error()})
 }
